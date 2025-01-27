@@ -109,7 +109,7 @@ const PlanningTab: React.FC<PlanningTabProps> = ({ flightPlan, setFlightPlan }) 
   // Flight Summaryを更新するuseEffect
   React.useEffect(() => {
     updateFlightSummary();
-  }, [updateFlightSummary]);
+  }, [updateFlightSummary, flightPlan.departure, flightPlan.arrival, flightPlan.waypoints, flightPlan.tas, flightPlan.departureTime]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

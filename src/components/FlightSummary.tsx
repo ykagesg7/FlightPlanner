@@ -10,9 +10,6 @@ interface FlightSummaryProps {
  * 総距離、ETE、ETAの表示を行う
  */
 const FlightSummary: React.FC<FlightSummaryProps> = ({ flightPlan }) => {
-  // 追加: FlightPlan props の情報をログ出力
-  console.log('FlightSummary Props:', flightPlan);
-
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm">
       <h2 className="text-lg font-semibold mb-4">Flight Summary</h2>

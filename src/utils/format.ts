@@ -1,7 +1,9 @@
-export const formatBearing = (value: number): string => {
-  return Math.round(value).toString().padStart(3, '0');
+export const formatBearing = (value: number | string): string => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  return Math.round(numValue).toString().padStart(3, '0');
 };
 
-export const formatDistance = (value: number): string => {
-  return Math.round(value).toString();
+export const formatDistance = (value: number | string): string => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  return Math.round(numValue).toString();
 }; 

@@ -101,48 +101,6 @@ export const formatDMS = (lat: number, lng: number): string => {
 };
 
 /**
- * 指定された緯度、経度、磁方位、距離からオフセットした位置を計算する関数
- * @param lat 緯度
- * @param lon 経度
- * @param bearing 磁方位（度）
- * @param distance 距離（海里）
- * @returns オフセット後の緯度と経度
- */
-export function calculateOffsetPoint(
-  lat: number,
-  lon: number,
-  bearing: number,
-  distance: number
-): { lat: number; lon: number } | null {
-  try {
-    const R = 3440.065; // 地球の半径（海里）
-    const bearingRad = (bearing * Math.PI) / 180;
-    const lat1 = (lat * Math.PI) / 180;
-    const lon1 = (lon * Math.PI) / 180;
-
-    const lat2 = Math.asin(
-      Math.sin(lat1) * Math.cos(distance / R) +
-        Math.cos(lat1) * Math.sin(distance / R) * Math.cos(bearingRad)
-    );
-
-    const lon2 =
-      lon1 +
-      Math.atan2(
-        Math.sin(bearingRad) * Math.sin(distance / R) * Math.cos(lat1),
-        Math.cos(distance / R) - Math.sin(lat1) * Math.sin(lat2)
-      );
-
-    return {
-      lat: (lat2 * 180) / Math.PI,
-      lon: (lon2 * 180) / Math.PI,
-    };
-  } catch (error) {
-    console.error('オフセット計算エラー:', error);
-    return null;
-  }
-}
-
-/**
  * 緯度経度(Decimal)をDMS形式に変換
  * @param {number} lat 緯度(Decimal)
  * @param {number} lng 経度(Decimal)

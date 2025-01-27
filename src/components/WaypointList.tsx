@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FlightPlan, Waypoint } from '../types';
 import { MapPin, ChevronUp, ChevronDown } from 'lucide-react';
-import { formatDMS, decimalToDMS, dmsToDecimal, calculateOffsetPoint } from '../utils';
+import { formatDMS, decimalToDMS, dmsToDecimal } from '../utils';
 import DmsInput from './DmsInput';
 import { formatBearing, formatDistance } from '../utils/format';
+import { calculateOffsetPoint as offsetCalculateOffsetPoint } from '../utils/offset';
 
 interface WaypointListProps {
   flightPlan: FlightPlan;
@@ -15,18 +16,26 @@ interface WaypointListProps {
  * ウェイポイントのリスト表示と操作（移動、削除、各種編集モード）を行う
  */
 const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }) => {
-  // 編集モードの状態を管理する変数
-  const [editingMode, setEditingMode] = React.useState< 'name' | 'id' | 'position' | null >(null);
-  const [editingWaypointIndex, setEditingWaypointIndex] = React.useState<number | null>(null);
-  const [editingWaypoint, setEditingWaypoint] = React.useState<Waypoint | null>(null);
+  // 編集中のウェイポイントの状態を管理する state
+  const [editingWaypointState, setEditingWaypointState] = useState<{
+    index: number | null;
+    mode: 'name' | 'id' | 'position' | null;
+    waypoint: Waypoint | null;
+    bearing?: string;
+    distance?: string;
+    dmsLatitude?: string;
+    dmsLongitude?: string;
+  }>({
+    index: null,
+    mode: null,
+    waypoint: null,
+    bearing: '',
+    distance: '',
+    dmsLatitude: '',
+    dmsLongitude: '',
+  });
 
-  // 編集対象Waypointの磁方位と距離
-  const [editingBearing, setEditingBearing] = React.useState<string>('');
-  const [editingDistance, setEditingDistance] = React.useState<string>('');
-
-  // 緯度経度編集用 state
-  const [dmsLatitude, setDmsLatitude] = React.useState<string>('');
-  const [dmsLongitude, setDmsLongitude] = React.useState<string>('');
+  const { index: editingIndex, mode: editingMode, waypoint: editingWaypoint, bearing: editingBearing, distance: editingDistance, dmsLatitude, dmsLongitude } = editingWaypointState;
 
   // ウェイポイントを上に移動するハンドラー
   const handleMoveWaypointUp = (index: number) => {
@@ -56,51 +65,72 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
     setFlightPlan({ ...flightPlan, waypoints: updatedWaypoints });
   };
 
-  // ウェイポイントの編集開始ハンドラー
+  // 編集開始ハンドラー
   const handleStartEdit = (index: number, mode: 'name' | 'id' | 'position') => {
-    setEditingMode(mode);
-    setEditingWaypointIndex(index);
-    setEditingWaypoint({ ...flightPlan.waypoints[index] });
-
     const wp = flightPlan.waypoints[index];
+    setEditingWaypointState({
+      index,
+      mode,
+      waypoint: { ...wp }, // ウェイポイントのコピーを設定
+      bearing: mode === 'id' && wp.metadata ? wp.metadata.bearing.toString() : '',
+      distance: mode === 'id' && wp.metadata ? wp.metadata.distance.toString() : '',
+      dmsLatitude: mode === 'position' ? decimalToDMS(wp.latitude, wp.longitude).latDMS : '',
+      dmsLongitude: mode === 'position' ? decimalToDMS(wp.latitude, wp.longitude).lonDMS : '',
+    });
+  };
 
-    if (mode === 'id') {
-      // ID編集モードの場合、オフセット情報を設定 (NAVAID選択は削除)
-      if (wp.metadata) {
-        setEditingBearing(wp.metadata.bearing.toString());
-        setEditingDistance(wp.metadata.distance.toString());
-      } else {
-        // metadataがない場合は、編集モードをキャンセル (念のため)
-        handleCancelEdit();
-      }
-    } else if (mode === 'position') {
-      // 位置編集モードの場合、DMS形式の初期値を設定
-      const dms = decimalToDMS(wp.latitude, wp.longitude);
-      setDmsLatitude(dms.latDMS);
-      setDmsLongitude(dms.lonDMS);
+  // 編集キャンセルハンドラー
+  const handleCancelEdit = () => {
+    setEditingWaypointState({
+      index: null,
+      mode: null,
+      waypoint: null,
+      bearing: '',
+      distance: '',
+      dmsLatitude: '',
+      dmsLongitude: '',
+    });
+  };
+
+  // 名前編集ハンドラー
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (editingWaypointState.waypoint) {
+      setEditingWaypointState({
+        ...editingWaypointState,
+        waypoint: { ...editingWaypointState.waypoint, name: e.target.value }
+      });
     }
   };
 
-  // ウェイポイントの編集キャンセルハンドラー
-  const handleCancelEdit = () => {
-    setEditingMode(null);
-    setEditingWaypointIndex(null);
-    setEditingWaypoint(null);
-    setEditingBearing('');
-    setEditingDistance('');
-    setDmsLatitude('');
-    setDmsLongitude('');
+  // 磁方位編集ハンドラー
+  const handleBearingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditingWaypointState({ ...editingWaypointState, bearing: e.target.value });
   };
 
-  // ウェイポイントの編集保存ハンドラー
-  const handleSaveEdit = () => {
-    if (editingWaypointIndex === null || !editingWaypoint) return;
+  // 距離編集ハンドラー
+  const handleDistanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditingWaypointState({ ...editingWaypointState, distance: e.target.value });
+  };
 
-    let updatedWaypoint: Waypoint = { ...editingWaypoint };
+  // DMS緯度編集ハンドラー
+  const handleDmsLatitudeChange = (value: string) => {
+    setEditingWaypointState({ ...editingWaypointState, dmsLatitude: value });
+  };
+
+  // DMS経度編集ハンドラー
+  const handleDmsLongitudeChange = (value: string) => {
+    setEditingWaypointState({ ...editingWaypointState, dmsLongitude: value });
+  };
+
+  // 編集保存ハンドラー
+  const handleSaveEdit = () => {
+    if (editingIndex === null || !editingWaypointState.waypoint) return;
+
+    let updatedWaypoint: Waypoint = { ...editingWaypointState.waypoint };
 
     if (editingMode === 'id') {
       // ID編集モードの保存処理：オフセット値のみを更新
-      if (editingBearing && editingDistance && editingWaypoint.metadata) { // metadataの存在をチェック
+      if (editingBearing && editingDistance && editingWaypointState.waypoint.metadata) { // metadataの存在をチェック
         const bearingNum = parseFloat(editingBearing);
         const distanceNum = parseFloat(editingDistance);
 
@@ -109,9 +139,9 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
           return;
         }
 
-        const offset = calculateOffsetPoint(
-          editingWaypoint.metadata.baseLatitude, // 元のNAVAIDの緯度を使用
-          editingWaypoint.metadata.baseLongitude, // 元のNAVAIDの経度を使用
+        const offset = offsetCalculateOffsetPoint(
+          editingWaypointState.waypoint.metadata.baseLatitude, // 元のNAVAIDの緯度を使用
+          editingWaypointState.waypoint.metadata.baseLongitude, // 元のNAVAIDの経度を使用
           bearingNum,
           distanceNum
         );
@@ -125,20 +155,20 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
             latitude: offset.lat,
             longitude: offset.lon,
             metadata: {
-              ...editingWaypoint.metadata, // 既存のmetadataを保持
+              ...editingWaypointState.waypoint.metadata, // 既存のmetadataを保持
               bearing: bearingNum,
               distance: distanceNum,
             }
           };
           // IDと名前を更新 (formattedBearingを使用)
-          updatedWaypoint.id = `${updatedWaypoint.metadata.baseNavaid}_${formattedBearing}/${formattedDistance}`;
+          updatedWaypoint.id = `${updatedWaypoint.metadata!.baseNavaid}_${formattedBearing}/${formattedDistance}`;
           updatedWaypoint.name = `${updatedWaypoint.name.split(' ')[0]} (${formattedBearing}/${formattedDistance})`;
         }
       }
     } else if (editingMode === 'position') {
       // 位置編集モードの保存処理
-      const latDecimal = dmsToDecimal(dmsLatitude, true);
-      const lonDecimal = dmsToDecimal(dmsLongitude, false);
+      const latDecimal = dmsToDecimal(dmsLatitude || '', true);
+      const lonDecimal = dmsToDecimal(dmsLongitude || '', false);
       if (latDecimal !== null && lonDecimal !== null) {
         updatedWaypoint = {
           ...updatedWaypoint,
@@ -153,7 +183,7 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
 
     // ウェイポイントを更新
     const updatedWaypoints = [...flightPlan.waypoints];
-    updatedWaypoints[editingWaypointIndex] = updatedWaypoint;
+    updatedWaypoints[editingIndex] = updatedWaypoint;
     setFlightPlan({ ...flightPlan, waypoints: updatedWaypoints });
 
     // 編集状態をリセット
@@ -170,11 +200,11 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
               <div className="flex items-center space-x-2">
                 <MapPin className="w-4 h-4 text-blue-500" />
                 {/* ウェイポイント名 (1行目) */}
-                {editingMode === 'name' && editingWaypointIndex === index ? (
+                {editingMode === 'name' && editingIndex === index ? (
                   <input
                     type="text"
-                    value={editingWaypoint.name}
-                    onChange={(e) => setEditingWaypoint({ ...editingWaypoint, name: e.target.value })}
+                    value={editingWaypoint?.name ?? ''}
+                    onChange={handleNameChange}
                     className="mt-1 block rounded-md border-gray-300 shadow-sm"
                   />
                 ) : (
@@ -188,7 +218,7 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
               </div>
 
               {/* 編集モードの場合、保存とキャンセルボタンを表示（共通） */}
-              {editingMode !== null && editingWaypointIndex === index && (
+              {editingMode !== null && editingIndex === index && (
                 <div className="space-x-2">
                   <button onClick={handleSaveEdit} className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">保存</button>
                   <button onClick={handleCancelEdit} className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">キャンセル</button>
@@ -208,23 +238,8 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
             {/* 詳細情報の表示 (ID, 位置) */}
             <div className="text-sm text-gray-500 mt-1">
               {/* ID (2行目) - 編集モード */}
-              {editingMode === 'id' && editingWaypointIndex === index ? (
+              {editingMode === 'id' && editingIndex === index ? (
                 <div className="space-y-2">
-                  {/* NAVAID選択を削除し、磁方位と距離の入力フィールドのみ表示 */}
-                  {/* <NavaidSelector
-                    options={navaidOptions}
-                    selectedNavaid={editingNavaid}
-                    setSelectedNavaid={setEditingNavaid}
-                    onAdd={() => {}}
-                  /> */}
-                  {/* <AirportSelect
-                    label="NAVAID"
-                    options={navaidOptions}
-                    selectedOption={editingNavaid}
-                    onChange={setEditingNavaid}
-                    placeholder="Select Navaid"
-                  /> */}
-
                   {/* 磁方位と距離の入力 (オフセットWaypointのみ) - 常に表示 */}
                   <>
                     <div>
@@ -232,7 +247,7 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
                       <input
                         type="number"
                         value={editingBearing}
-                        onChange={(e) => setEditingBearing(e.target.value)}
+                        onChange={handleBearingChange}
                         placeholder="0 - 360"
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                         min="0"
@@ -244,7 +259,7 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
                       <input
                         type="number"
                         value={editingDistance}
-                        onChange={(e) => setEditingDistance(e.target.value)}
+                        onChange={handleDistanceChange}
                         placeholder="例: 10"
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                         min="0"
@@ -259,24 +274,24 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
                 </div>
               )}
 
-              {/* 位置情報 (3行目) - 編集モード（既存） */}
-              {editingMode === 'position' && editingWaypointIndex === index ? (
+              {/* 位置情報 (3行目) - 編集モード */}
+              {editingMode === 'position' && editingIndex === index ? (
                 <div className="space-y-2">
                   <DmsInput
                     label="緯度"
-                    value={dmsLatitude}
-                    onChange={setDmsLatitude}
+                    value={dmsLatitude || ''}
+                    onChange={handleDmsLatitudeChange}
                     latitude={true}
                   />
                   <DmsInput
                     label="経度"
-                    value={dmsLongitude}
-                    onChange={setDmsLongitude}
+                    value={dmsLongitude || ''}
+                    onChange={handleDmsLongitudeChange}
                     latitude={false}
                   />
                 </div>
               ) : (
-                // 位置情報 (3行目) - 通常表示（既存）
+                // 位置情報 (3行目) - 通常表示
                 <div
                   onClick={() => handleStartEdit(index, 'position')}
                   className="cursor-pointer hover:underline mt-2"

@@ -27,13 +27,15 @@ export interface Waypoint {
   latitude: number;
   longitude: number;
   nameEditable?: boolean;
-  metadata?: {
-    baseNavaid: string;
-    bearing: number;
-    distance: number;
-    baseLatitude: number;
-    baseLongitude: number;
-  };
+  metadata?: WaypointMetadata;
+}
+
+export interface WaypointMetadata {
+  baseNavaid: string;
+  bearing: number;
+  distance: number;
+  baseLatitude: number;
+  baseLongitude: number;
 }
 
 export interface FlightPlan {

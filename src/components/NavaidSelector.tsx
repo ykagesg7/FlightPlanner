@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ReactSelect from 'react-select';
-import { calculateOffsetPoint } from '../utils';
+import { calculateOffsetPoint } from '../utils/offset';
 
 interface NavaidSelectorProps {
   options: any[];
