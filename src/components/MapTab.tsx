@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap } from 'react-leaflet';
-import { FlightPlan, GeoJSONData } from '../types';
+import { MapContainer, Popup, Polyline, CircleMarker, useMap } from 'react-leaflet';
+import { FlightPlan } from '../types';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-groupedlayercontrol/dist/leaflet.groupedlayercontrol.min.css';
 import 'leaflet-groupedlayercontrol';

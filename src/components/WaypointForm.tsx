@@ -125,15 +125,15 @@ const WaypointForm: React.FC<WaypointFormProps> = ({ flightPlan, setFlightPlan }
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm mt-8">
-      <h2 className="text-lg font-semibold mb-4">Add Waypoint</h2>
+    <div className="bg-gray-800 p-6 rounded-lg shadow-sm mt-8">
+      <legend className="text-lg font-semibold mb-4 text-gray-50">Add Waypoint</legend>
 
       {/* 座標入力モード切り替え */}
       <div className="mb-4">
-        <label className="inline-flex items-center cursor-pointer">
+        <label className="inline-flex items-center cursor-pointer text-gray-400">
           <input
             type="radio"
-            className="form-radio"
+            className="form-radio text-blue-500"
             name="coordinateInputMode"
             value="DMS"
             checked={coordinateInputMode === 'DMS'}
@@ -141,10 +141,10 @@ const WaypointForm: React.FC<WaypointFormProps> = ({ flightPlan, setFlightPlan }
           />
           <span className="ml-2">DMS入力</span>
         </label>
-        <label className="inline-flex items-center cursor-pointer ml-4">
+        <label className="inline-flex items-center cursor-pointer ml-4 text-gray-400">
           <input
             type="radio"
-            className="form-radio"
+            className="form-radio text-blue-500"
             name="coordinateInputMode"
             value="Decimal"
             checked={coordinateInputMode === 'Decimal'}
@@ -173,23 +173,23 @@ const WaypointForm: React.FC<WaypointFormProps> = ({ flightPlan, setFlightPlan }
       ) : (
         <div className="space-y-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700">緯度 (±90.000000)</label>
+            <label className="block text-sm font-medium text-gray-400">緯度 (±90.000000)</label>
             <input
               type="text"
               value={decimalLatitude}
               onChange={(e) => setDecimalLatitude(e.target.value)}
               placeholder="例: 35.123456"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+              className="mt-1 block w-full rounded-md border-gray-700 shadow-sm bg-gray-800 text-gray-50"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">経度 (±180.000000)</label>
+            <label className="block text-sm font-medium text-gray-400">経度 (±180.000000)</label>
             <input
               type="text"
               value={decimalLongitude}
               onChange={(e) => setDecimalLongitude(e.target.value)}
               placeholder="例: 139.123456"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+              className="mt-1 block w-full rounded-md border-gray-700 shadow-sm bg-gray-800 text-gray-50"
             />
           </div>
         </div>
@@ -197,28 +197,28 @@ const WaypointForm: React.FC<WaypointFormProps> = ({ flightPlan, setFlightPlan }
 
       {/* オフセット入力フィールド */}
       <div className="space-y-2">
-        <h4 className="text-sm font-medium text-gray-700">オフセット (オプション)</h4>
+        <h4 className="text-sm font-medium text-gray-400">オフセット (オプション)</h4>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700">方位 (度)</label>
+            <label className="block text-sm font-medium text-gray-400">方位 (度)</label>
             <input
               type="number"
               value={bearing}
               onChange={(e) => setBearing(e.target.value)}
               placeholder="0-360"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+              className="mt-1 block w-full rounded-md border-gray-700 shadow-sm bg-gray-800 text-gray-50"
               min="0"
               max="360"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">距離 (海里)</label>
+            <label className="block text-sm font-medium text-gray-400">距離 (海里)</label>
             <input
               type="number"
               value={distance}
               onChange={(e) => setDistance(e.target.value)}
               placeholder="距離"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+              className="mt-1 block w-full rounded-md border-gray-700 shadow-sm bg-gray-800 text-gray-50"
               min="0"
             />
           </div>
@@ -228,7 +228,7 @@ const WaypointForm: React.FC<WaypointFormProps> = ({ flightPlan, setFlightPlan }
       {/* 追加ボタン */}
       <button
         onClick={handleAddWaypoint}
-        className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        className="mt-2 w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
       >
         Add Waypoint
       </button>

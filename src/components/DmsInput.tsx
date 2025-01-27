@@ -18,114 +18,106 @@ interface DmsInputProps {
  * 例: "N345678", "345678N", "345678" (緯度), "E1234567", "1234567E", "1234567" (経度)
  */
 const DmsInput: React.FC<DmsInputProps> = ({ label, value, onChange, latitude }) => {
-    // 内部状態を分割して管理
-    const [direction, setDirection] = useState<string>(latitude ? 'N' : 'E');
     const [degrees, setDegrees] = useState<string>('');
     const [minutes, setMinutes] = useState<string>('');
     const [seconds, setSeconds] = useState<string>('');
+    const [error, setError] = useState< string | null >(null); // エラーメッセージの状態を追加
 
-    // 外部のvalue値が変更された時に内部状態を更新
     useEffect(() => {
-        if (!value) {
-            // 値がクリアされた場合は内部状態もクリア
+        parseDMSValue(value);
+    }, [value]);
+
+    const parseDMSValue = (dmsValue: string) => {
+        const regex = latitude ? /([NS])?(\d{2})?(\d{2})?(\d{2})?([NS])?/i : /([EW])?(\d{3})?(\d{2})?(\d{2})?([EW])?/i;
+        const match = dmsValue.match(regex);
+
+        if (match) {
+            let deg = match[2] || '';
+            let min = match[3] || '';
+            let sec = match[4] || '';
+
+            setDegrees(deg);
+            setMinutes(min);
+            setSeconds(sec);
+        } else {
             setDegrees('');
             setMinutes('');
             setSeconds('');
-            setDirection(latitude ? 'N' : 'E');
-            return;
         }
+    };
 
-        // 既存の値を分解して各フィールドに設定
-        const numberPart = value.replace(/[NSEW]/g, '');
-        const dir = value.match(/[NSEW]/)?.[0] || (latitude ? 'N' : 'E');
-        
-        if (latitude) {
-            setDegrees(numberPart.substring(0, 2));
-            setMinutes(numberPart.substring(2, 4));
-            setSeconds(numberPart.substring(4, 6));
-        } else {
-            setDegrees(numberPart.substring(0, 3));
-            setMinutes(numberPart.substring(3, 5));
-            setSeconds(numberPart.substring(5, 7));
-        }
-        setDirection(dir);
-    }, [value, latitude]);
+    const formatDMSValue = () => {
+        let formattedValue = '';
+        formattedValue += degrees.padStart(latitude ? 2 : 3, '0');
+        formattedValue += minutes.padStart(2, '0');
+        formattedValue += seconds.padStart(2, '0');
+        return formattedValue;
+    };
 
-    // 各フィールドの変更をハンドル
-    const handleFieldChange = (
-        field: 'direction' | 'degrees' | 'minutes' | 'seconds',
-        newValue: string
-    ) => {
+    const handleFieldChange = (field: 'degrees' | 'minutes' | 'seconds', newValue: string) => {
         let isValid = true;
-        const numValue = parseInt(newValue, 10);
+        let errorMessage = null;
 
-        switch (field) {
-            case 'direction':
-                setDirection(newValue);
-                break;
-            case 'degrees':
-                if (newValue === '' || (/^\d{0,3}$/.test(newValue) && 
-                    (latitude ? numValue <= 90 : numValue <= 180))) {
-                    setDegrees(newValue);
+        if (isNaN(Number(newValue))) {
+            isValid = false;
+            errorMessage = '数値を入力してください';
+        } else {
+            const numValue = Number(newValue);
+            if (field === 'degrees') {
+                if (latitude) {
+                    if (numValue < 0 || numValue > 90) {
+                        isValid = false;
+                        errorMessage = '0-90度の範囲で入力してください';
+                    }
                 } else {
-                    isValid = false;
+                    if (numValue < 0 || numValue > 180) {
+                        isValid = false;
+                        errorMessage = '0-180度の範囲で入力してください';
+                    }
                 }
-                break;
-            case 'minutes':
-                if (newValue === '' || (/^\d{0,2}$/.test(newValue) && numValue < 60)) {
-                    setMinutes(newValue);
-                } else {
+            } else if (field === 'minutes' || field === 'seconds') {
+                if (numValue < 0 || numValue > 59) {
                     isValid = false;
+                    errorMessage = '0-59の範囲で入力してください';
                 }
-                break;
-            case 'seconds':
-                if (newValue === '' || (/^\d{0,2}$/.test(newValue) && numValue < 60)) {
-                    setSeconds(newValue);
-                } else {
-                    isValid = false;
-                }
-                break;
+            }
         }
+
+        setError(errorMessage); // エラーメッセージを設定
 
         if (isValid) {
-            // 全フィールドが入力されている場合のみ親コンポーネントに通知
-            const degreesComplete = latitude ? degrees.length === 2 : degrees.length === 3;
-            const minutesComplete = minutes.length === 2;
-            const secondsComplete = seconds.length === 2;
-
-            if (degreesComplete && minutesComplete && secondsComplete) {
-                const dmsString = `${direction}${degrees}${minutes}${seconds}`;
-                onChange(dmsString);
+            setError(null);
+            switch (field) {
+                case 'degrees':
+                    setDegrees(newValue);
+                    break;
+                case 'minutes':
+                    setMinutes(newValue);
+                    break;
+                case 'seconds':
+                    setSeconds(newValue);
+                    break;
+                default:
+                    break;
             }
         }
     };
 
+    useEffect(() => {
+        if (!error) {
+            onChange(formatDMSValue());
+        }
+    }, [degrees, minutes, seconds, onChange, error]);
+
     return (
-        <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">{label}</label>
+        <div className="mb-4">
+            <label className="block text-sm font-medium text-white-700 mb-2">{label}</label>
             <div className="flex space-x-2">
-                <select
-                    value={direction}
-                    onChange={(e) => handleFieldChange('direction', e.target.value)}
-                    className="w-20 rounded border-gray-300"
-                >
-                    {latitude ? (
-                        <>
-                            <option value="N">北緯(N)</option>
-                            <option value="S">南緯(S)</option>
-                        </>
-                    ) : (
-                        <>
-                            <option value="E">東経(E)</option>
-                            <option value="W">西経(W)</option>
-                        </>
-                    )}
-                </select>
                 <input
                     type="text"
                     value={degrees}
                     onChange={(e) => handleFieldChange('degrees', e.target.value)}
-                    placeholder={latitude ? '度(00)' : '度(000)'}
+                    placeholder="度(DD)"
                     className="w-20 rounded border-gray-300"
                     maxLength={latitude ? 2 : 3}
                 />
@@ -133,7 +125,7 @@ const DmsInput: React.FC<DmsInputProps> = ({ label, value, onChange, latitude })
                     type="text"
                     value={minutes}
                     onChange={(e) => handleFieldChange('minutes', e.target.value)}
-                    placeholder="分(00)"
+                    placeholder="分(MM)"
                     className="w-20 rounded border-gray-300"
                     maxLength={2}
                 />
@@ -146,6 +138,7 @@ const DmsInput: React.FC<DmsInputProps> = ({ label, value, onChange, latitude })
                     maxLength={2}
                 />
             </div>
+            {error && <p className="mt-1 text-red-500 text-sm">{error}</p>} {/* エラーメッセージ表示 */}
         </div>
     );
 };

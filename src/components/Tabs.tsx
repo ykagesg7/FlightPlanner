@@ -71,13 +71,13 @@ const TabsComponent: React.FC<TabsProps> = () => {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8" aria-label="Tabs">
           <button
-            className={`${activeTab === 'planning' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap border-b-2 px-1 py-4 font-medium text-sm`}
+            className={`${activeTab === 'planning' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap border-b-2 px-1 py-4 font-medium text-sm`}
             onClick={() => setActiveTab('planning')}
           >
             Planning
           </button>
           <button
-            className={`${activeTab === 'map' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap border-b-2 px-1 py-4 font-medium text-sm`}
+            className={`${activeTab === 'map' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap border-b-2 px-1 py-4 font-medium text-sm`}
             onClick={() => setActiveTab('map')}
           >
             Map

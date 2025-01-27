@@ -191,11 +191,11 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm">
-      <h2 className="text-lg font-semibold mb-4">Waypoint List</h2>
+    <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
+      <legend className="text-lg font-semibold mb-4 text-gray-50">Waypoint List</legend>
       <ul>
         {flightPlan.waypoints.map((waypoint, index) => (
-          <li key={index} className="mb-4 p-4 border rounded-lg">
+          <li key={index} className="mb-4 p-4 border rounded-lg border-gray-700 bg-gray-700">
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-2">
                 <MapPin className="w-4 h-4 text-blue-500" />
@@ -205,12 +205,12 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
                     type="text"
                     value={editingWaypoint?.name ?? ''}
                     onChange={handleNameChange}
-                    className="mt-1 block rounded-md border-gray-300 shadow-sm"
+                    className="mt-1 block rounded-md border-gray-700 shadow-sm bg-gray-800 text-gray-50"
                   />
                 ) : (
                   <button
                     onClick={() => handleStartEdit(index, 'name')}
-                    className="text-left hover:underline font-semibold"
+                    className="text-left hover:underline font-semibold text-gray-50"
                   >
                     {waypoint.name}
                   </button>
@@ -227,41 +227,41 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
 
               {/* ウェイポイントの移動と削除ボタン（共通） */}
               <div className="flex items-center space-x-2">
-                <button onClick={() => handleMoveWaypointUp(index)} className="p-1 rounded-full hover:bg-gray-200" aria-label="Move Waypoint Up"><ChevronUp className="w-4 h-4" /></button>
-                <button onClick={() => handleMoveWaypointDown(index)} className="p-1 rounded-full hover:bg-gray-200" aria-label="Move Waypoint Down"><ChevronDown className="w-4 h-4" /></button>
-                <button onClick={() => handleRemoveWaypoint(index)} className="p-1 rounded-full hover:bg-red-200 text-red-500" aria-label="Remove Waypoint">
+                <button onClick={() => handleMoveWaypointUp(index)} className="p-1 rounded-full hover:bg-gray-700 text-gray-50" aria-label="Move Waypoint Up"><ChevronUp className="w-4 h-4" /></button>
+                <button onClick={() => handleMoveWaypointDown(index)} className="p-1 rounded-full hover:bg-gray-700 text-gray-50" aria-label="Move Waypoint Down"><ChevronDown className="w-4 h-4" /></button>
+                <button onClick={() => handleRemoveWaypoint(index)} className="p-1 rounded-full hover:bg-red-700 text-red-500" aria-label="Remove Waypoint">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-4.5 5.25a.75.75 0 0 0-1.06 1.06L10.94 12l-4.5 4.5a.75.75 0 1 0 1.06 1.06L12 13.06l4.5 4.5a.75.75 0 1 0 1.06-1.06L13.06 12l4.5-4.5a.75.75 0 0 0-1.06-1.06L12 10.94 7.5 6.44Z" clipRule="evenodd" /></svg>
                 </button>
               </div>
             </div>
 
             {/* 詳細情報の表示 (ID, 位置) */}
-            <div className="text-sm text-gray-500 mt-1">
+            <div className="text-sm text-gray-400 mt-1">
               {/* ID (2行目) - 編集モード */}
               {editingMode === 'id' && editingIndex === index ? (
                 <div className="space-y-2">
                   {/* 磁方位と距離の入力 (オフセットWaypointのみ) - 常に表示 */}
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">磁方位(°)</label>
+                      <label className="block text-sm font-medium text-gray-400">磁方位(°)</label>
                       <input
                         type="number"
                         value={editingBearing}
                         onChange={handleBearingChange}
                         placeholder="0 - 360"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                        className="mt-1 block w-full rounded-md border-gray-700 shadow-sm bg-gray-800 text-gray-50"
                         min="0"
                         max="360"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">距離(nm)</label>
+                      <label className="block text-sm font-medium text-gray-400">距離(nm)</label>
                       <input
                         type="number"
                         value={editingDistance}
                         onChange={handleDistanceChange}
                         placeholder="例: 10"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                        className="mt-1 block w-full rounded-md border-gray-700 shadow-sm bg-gray-800 text-gray-50"
                         min="0"
                       />
                     </div>
@@ -269,8 +269,8 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
                 </div>
               ) : (
                 // ID (2行目) - 通常表示
-                <div onClick={() => handleStartEdit(index, 'id')} className="cursor-pointer hover:underline">
-                  <span className="text-sm text-gray-500">ID: {waypoint.id}</span>
+                <div onClick={() => handleStartEdit(index, 'id')} className="cursor-pointer hover:underline text-gray-400">
+                  <span className="text-sm text-gray-400">ID: {waypoint.id}</span>
                 </div>
               )}
 
@@ -294,7 +294,7 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
                 // 位置情報 (3行目) - 通常表示
                 <div
                   onClick={() => handleStartEdit(index, 'position')}
-                  className="cursor-pointer hover:underline mt-2"
+                  className="cursor-pointer hover:underline mt-2 text-gray-400"
                 >
                   位置: {formatDMS(waypoint.latitude, waypoint.longitude)}
                 </div>
