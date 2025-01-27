@@ -1,8 +1,9 @@
 import type * as L from 'leaflet';
 
 export interface Airport {
-  id: string;
+  value: string;
   name: string;
+  label: string;
   type: 'civilian' | 'military' | 'joint';
   latitude: number;
   longitude: number;
@@ -26,6 +27,13 @@ export interface Waypoint {
   latitude: number;
   longitude: number;
   nameEditable?: boolean;
+  metadata?: {
+    baseNavaid: string;
+    bearing: number;
+    distance: number;
+    baseLatitude: number;
+    baseLongitude: number;
+  };
 }
 
 export interface FlightPlan {

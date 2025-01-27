@@ -29,7 +29,7 @@ const MapTab: React.FC<MapTabProps> = ({ flightPlan }) => {
   const defaultCenter = { lat: 35.6762, lng: 139.6503 }; // Tokyo
   const defaultZoom = 6;
 
-  // ルートの座標を作成 (MapContainerの外で定義)
+  // ルートの座標を作成
   const routePoints = React.useMemo(() => {
     const points: [number, number][] = [];
     if (flightPlan.departure && typeof flightPlan.departure.latitude === 'number' && typeof flightPlan.departure.longitude === 'number') {
@@ -46,7 +46,6 @@ const MapTab: React.FC<MapTabProps> = ({ flightPlan }) => {
     return points;
   }, [flightPlan]);
 
-
   return (
     <div className="h-[calc(100vh-12rem)] bg-white rounded-lg shadow-sm overflow-hidden">
       <MapContainer
@@ -54,16 +53,16 @@ const MapTab: React.FC<MapTabProps> = ({ flightPlan }) => {
         zoom={defaultZoom}
         className="h-full w-full"
       >
-        <MapContent flightPlan={flightPlan} routePoints={routePoints} /> {/* MapContentコンポーネントに分離 */}
+        <MapContent flightPlan={flightPlan} routePoints={routePoints} />
       </MapContainer>
     </div>
   );
 };
 
-// MapContent コンポーネント (MapContainerの子コンポーネントとして分離)
 const MapContent: React.FC<{ flightPlan: FlightPlan, routePoints: [number, number][] }> = ({ flightPlan, routePoints }) => {
   const map = useMap();
   const layerControlRef = useRef<L.Control.Layers | null>(null) as LayerControlRef;
+  const [navaids, setNavaids] = React.useState<any[]>([]);
 
   // OpenStreetMapレイヤー
   const osmLayer = useMemo(() => L.tileLayer(
@@ -86,9 +85,35 @@ const MapContent: React.FC<{ flightPlan: FlightPlan, routePoints: [number, numbe
     "衛星写真": esriLayer
   }), [osmLayer, esriLayer]);
 
-  // レイヤーコントロールの更新
-  const control = L.control.layers(baseLayers, {});
+  // Navaidsデータを読み込む
+  useEffect(() => {
+    const fetchNavaids = async () => {
+      try {
+        const response = await fetch('/geojson/Navaids.geojson');
+        const data = await response.json();
+        setNavaids(data.features);
+      } catch (error) {
+        console.error('Failed to load Navaids:', error);
+      }
+    };
+    fetchNavaids();
+  }, []);
 
+  // Navaidの色を決定する関数
+  const getNavaidColor = (type: string) => {
+    switch (type) {
+      case 'TACAN':
+        return 'red';
+      case 'VOR':
+        return 'blue';
+      case 'VORTAC':
+        return 'purple';
+      default:
+        return 'gray';
+    }
+  };
+
+  // レイヤーコントロールの更新
   useEffect(() => {
     if (!map) {
       console.error('Map instance is not available');
@@ -117,20 +142,21 @@ const MapContent: React.FC<{ flightPlan: FlightPlan, routePoints: [number, numbe
 
   return (
     <>
-      {/* レイヤーはuseEffect内で追加するため、ここでは何も表示しない */}
-      {/* ルートの線を追加 */}
+      {/* ベースレイヤー */}
+      {/* ルートの線 */}
       {routePoints.length > 1 && (
         <Polyline positions={routePoints} color="blue" weight={2} />
       )}
-      {/* 出発空港のマーカー (CircleMarkerに変更) */}
+
+      {/* 出発空港のマーカー */}
       {flightPlan.departure && (
         <CircleMarker
           center={[flightPlan.departure.latitude, flightPlan.departure.longitude]}
-          radius={6} // 円の半径
-          fillColor="green" // 円の塗りつぶし色
-          color="green"     // 円の線の色 (塗りつぶし色と同じにすると線が消える)
-          weight={1}        // 円の線の太さ
-          fillOpacity={0.8}  // 塗りつぶしの透明度
+          radius={6}
+          fillColor="green"
+          color="green"
+          weight={1}
+          fillOpacity={0.8}
         >
           <Popup>
             <div>
@@ -140,7 +166,8 @@ const MapContent: React.FC<{ flightPlan: FlightPlan, routePoints: [number, numbe
           </Popup>
         </CircleMarker>
       )}
-      {/* 到着空港のマーカー (CircleMarkerに変更) */}
+
+      {/* 到着空港のマーカー */}
       {flightPlan.arrival && (
         <CircleMarker
           center={[flightPlan.arrival.latitude, flightPlan.arrival.longitude]}
@@ -158,7 +185,8 @@ const MapContent: React.FC<{ flightPlan: FlightPlan, routePoints: [number, numbe
           </Popup>
         </CircleMarker>
       )}
-      {/* ウェイポイントのマーカー (CircleMarkerに変更) */}
+
+      {/* ウェイポイントのマーカー */}
       {flightPlan.waypoints.map((waypoint, index) => (
         <CircleMarker
           key={index}
@@ -177,9 +205,41 @@ const MapContent: React.FC<{ flightPlan: FlightPlan, routePoints: [number, numbe
           </Popup>
         </CircleMarker>
       ))}
+
+      {/* Navaidsのマーカー */}
+      {navaids.map((navaid, index) => (
+        <CircleMarker
+          key={index}
+          center={[
+            navaid.geometry.coordinates[1],
+            navaid.geometry.coordinates[0]
+          ]}
+          radius={4}
+          fillColor={getNavaidColor(navaid.properties.type)}
+          color={getNavaidColor(navaid.properties.type)}
+          weight={1}
+          fillOpacity={0.8}
+        >
+          <Popup>
+            <div className="space-y-1">
+              <h2 className="font-bold text-lg">{navaid.properties.name}</h2>
+              <p className="text-sm text-gray-600">ID: {navaid.properties.id}</p>
+              <p className="text-sm text-gray-600">Type: {navaid.properties.type}</p>
+              {navaid.properties.ch && (
+                <p className="text-sm text-gray-600">Channel: {navaid.properties.ch}</p>
+              )}
+              {navaid.properties.freq && (
+                <p className="text-sm text-gray-600">Frequency: {navaid.properties.freq} MHz</p>
+              )}
+              <p className="text-sm text-gray-600">
+                Position: {navaid.geometry.coordinates[1].toFixed(4)}°N, {navaid.geometry.coordinates[0].toFixed(4)}°E
+              </p>
+            </div>
+          </Popup>
+        </CircleMarker>
+      ))}
     </>
   );
 };
-
 
 export default MapTab;

@@ -99,4 +99,99 @@ export const formatDMS = (lat: number, lng: number): string => {
   // DMS 形式で返す (表示形式変更)
   return `位置(DMS)：${latDir}${String(latDegrees).padStart(2, '0')}${String(latMinutes).padStart(2, '0')}${String(latSeconds).padStart(2, '0')} ${lngDir}${String(lngDegrees).padStart(3, '0')}${String(lngMinutes).padStart(2, '0')}${String(lngSeconds).padStart(2, '0')}`;
 };
+
+/**
+ * 指定された緯度、経度、磁方位、距離からオフセットした位置を計算する関数
+ * @param lat 緯度
+ * @param lon 経度
+ * @param bearing 磁方位（度）
+ * @param distance 距離（海里）
+ * @returns オフセット後の緯度と経度
+ */
+export function calculateOffsetPoint(
+  lat: number,
+  lon: number,
+  bearing: number,
+  distance: number
+): { lat: number; lon: number } | null {
+  try {
+    const R = 3440.065; // 地球の半径（海里）
+    const bearingRad = (bearing * Math.PI) / 180;
+    const lat1 = (lat * Math.PI) / 180;
+    const lon1 = (lon * Math.PI) / 180;
+
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(distance / R) +
+        Math.cos(lat1) * Math.sin(distance / R) * Math.cos(bearingRad)
+    );
+
+    const lon2 =
+      lon1 +
+      Math.atan2(
+        Math.sin(bearingRad) * Math.sin(distance / R) * Math.cos(lat1),
+        Math.cos(distance / R) - Math.sin(lat1) * Math.sin(lat2)
+      );
+
+    return {
+      lat: (lat2 * 180) / Math.PI,
+      lon: (lon2 * 180) / Math.PI,
+    };
+  } catch (error) {
+    console.error('オフセット計算エラー:', error);
+    return null;
+  }
+}
+
+/**
+ * 緯度経度(Decimal)をDMS形式に変換
+ * @param {number} lat 緯度(Decimal)
+ * @param {number} lng 経度(Decimal)
+ * @returns {{latDMS: string, lonDMS: string}} DMS形式の緯度経度
+ */
+export const decimalToDMS = (lat: number, lng: number): { latDMS: string, lonDMS: string } => {
+  const latDir = lat >= 0 ? 'N' : 'S';
+  const lngDir = lng >= 0 ? 'E' : 'W';
+
+  const latDegrees = Math.floor(Math.abs(lat));
+  const latMinutes = Math.floor((Math.abs(lat) - latDegrees) * 60);
+  const latSeconds = Math.round((Math.abs(lat) - latDegrees - latMinutes / 60) * 3600);
+
+  const lngDegrees = Math.floor(Math.abs(lng));
+  const lngMinutes = Math.floor((Math.abs(lng) - lngDegrees) * 60);
+  const lngSeconds = Math.round((Math.abs(lng) - lngDegrees - lngMinutes / 60) * 3600);
+
+  const latDMS = `${latDir}${String(latDegrees).padStart(2, '0')}°${String(latMinutes).padStart(2, '0')}'${String(latSeconds).padStart(2, '0')}"`;
+  const lonDMS = `${lngDir}${String(lngDegrees).padStart(3, '0')}°${String(lngMinutes).padStart(2, '0')}'${String(lngSeconds).padStart(2, '0')}"`;
+
+  return { latDMS, lonDMS };
+};
+
+/**
+ * DMS形式の緯度経度をDecimal形式に変換
+ * @param {string} dms 緯度経度のDMS文字列 (例: "N35°43'36"")
+ * @param {boolean} isLatitude 緯度かどうか (経度の場合はfalse)
+ * @returns {number | null} Decimal形式の緯度または経度、変換失敗時はnull
+ */
+export const dmsToDecimal = (dms: string, isLatitude: boolean): number | null => {
+  const regex = isLatitude ? /([NS])(\d{2})°(\d{2})'(\d{2})"/ : /([EW])(\d{3})°(\d{2})'(\d{2})"/;
+  const match = dms.toUpperCase().match(regex);
+
+  if (!match) {
+    console.error("DMS形式の変換エラー: 無効なフォーマット", dms);
+    return null;
+  }
+
+  const hemisphere = match[1];
+  const degrees = parseInt(match[2], 10);
+  const minutes = parseInt(match[3], 10);
+  const seconds = parseInt(match[4], 10);
+
+  let decimal = degrees + minutes / 60 + seconds / 3600;
+
+  if (hemisphere === 'S' || hemisphere === 'W') {
+    decimal = -decimal;
+  }
+
+  return decimal;
+};
   
