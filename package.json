@@ -13,6 +13,7 @@
     "@headlessui/react": "^1.7.18",
     "@radix-ui/react-tabs": "^1.0.4",
     "clsx": "^2.1.1",
+    "date-fns-tz": "^3.2.0",
     "leaflet": "^1.9.4",
     "leaflet-groupedlayercontrol": "^0.6.1",
     "lucide-react": "^0.344.0",

@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { FlightPlan } from '../types';
-import { calculateTAS, calculateMach } from '../utils';
+import { calculateTAS, calculateMach, parseTimeString, SPEED_INCREMENT, ALTITUDE_INCREMENT } from '../utils';
 import { ChevronUp, ChevronDown, Clock, Gauge, BarChart } from 'lucide-react';
 import { toZonedTime, format } from 'date-fns-tz';
 
@@ -17,37 +17,30 @@ const FlightParameters: React.FC<FlightParametersProps> = ({
   flightPlan,
   setFlightPlan,
 }) => {
-  const handleSpeedChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSpeedChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const newSpeed = parseInt(event.target.value, 10);
     setFlightPlan({ ...flightPlan, speed: newSpeed });
-  };
+  }, [flightPlan, setFlightPlan]);
 
-  const handleAltitudeChange = (newAltitude: number) => {
+  const handleAltitudeChange = useCallback((newAltitude: number) => {
     setFlightPlan({ ...flightPlan, altitude: newAltitude });
-  };
+  }, [flightPlan, setFlightPlan]);
 
-  const parseTimeString = (timeString: string) => {
-    const [hours, minutes] = timeString.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours);
-    date.setMinutes(minutes);
-    return date;
-  };
-
-  const handleDepartureTimeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDepartureTimeChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const jstTime = event.target.value;
     setFlightPlan({ ...flightPlan, departureTime: jstTime });
-  };
+  }, [flightPlan, setFlightPlan]);
 
-  // TAS, Mach, Date は flightPlan から直接計算
-  const calculatedTAS = calculateTAS(flightPlan.speed, flightPlan.altitude);
-  const calculatedMach = calculateMach(calculatedTAS, flightPlan.altitude);
+  const calculatedTAS = useMemo(() => calculateTAS(flightPlan.speed, flightPlan.altitude), [flightPlan.speed, flightPlan.altitude]);
+  const calculatedMach = useMemo(() => calculateMach(calculatedTAS, flightPlan.altitude), [calculatedTAS, flightPlan.altitude]);
 
-  const utcTime = format(
-    toZonedTime(parseTimeString(flightPlan.departureTime), 'UTC'),
-    'HH:mm',
-    { timeZone: 'UTC' }
-  );
+  const utcTime = useMemo(() => {
+    return format(
+      toZonedTime(parseTimeString(flightPlan.departureTime), 'UTC'),
+      'HH:mm',
+      { timeZone: 'UTC' }
+    );
+  }, [flightPlan.departureTime]);
 
   return (
     <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
@@ -71,13 +64,13 @@ const FlightParameters: React.FC<FlightParametersProps> = ({
             <div className="flex flex-col">
               <button
                 className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded-t-md focus:outline-none text-gray-50"
-                onClick={() => setFlightPlan({ ...flightPlan, speed: flightPlan.speed + 10 })}
+                onClick={() => setFlightPlan({ ...flightPlan, speed: flightPlan.speed + SPEED_INCREMENT })}
               >
                 <ChevronUp className="w-4 h-4" />
               </button>
               <button
                 className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded-b-md focus:outline-none text-gray-50"
-                onClick={() => setFlightPlan({ ...flightPlan, speed: flightPlan.speed - 10 })}
+                onClick={() => setFlightPlan({ ...flightPlan, speed: flightPlan.speed - SPEED_INCREMENT })}
               >
                 <ChevronDown className="w-4 h-4" />
               </button>
@@ -110,13 +103,13 @@ const FlightParameters: React.FC<FlightParametersProps> = ({
             <div className="flex flex-col">
               <button
                 className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded-t-md focus:outline-none text-gray-50"
-                onClick={() => handleAltitudeChange(flightPlan.altitude + 1000)}
+                onClick={() => handleAltitudeChange(flightPlan.altitude + ALTITUDE_INCREMENT)}
               >
                 <ChevronUp className="w-4 h-4" />
               </button>
               <button
                 className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded-b-md focus:outline-none text-gray-50"
-                onClick={() => handleAltitudeChange(flightPlan.altitude - 1000)}
+                onClick={() => handleAltitudeChange(flightPlan.altitude - ALTITUDE_INCREMENT)}
               >
                 <ChevronDown className="w-4 h-4" />
               </button>

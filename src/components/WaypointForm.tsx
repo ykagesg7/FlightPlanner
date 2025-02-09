@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import DmsInput from './DmsInput';
+import React, { useState, useEffect } from 'react';
+// import DmsInput from './DmsInput'; // DmsInputのインポートを削除
 import { calculateOffsetPoint } from '../utils/offset'; // Import from offset.ts
 import { FlightPlan } from '../types';
+import { dmsToDecimal } from '../utils/dms'; // ユーティリティ関数をインポート
 
 interface WaypointFormProps {
   flightPlan: FlightPlan;
@@ -12,116 +13,144 @@ const WaypointForm: React.FC<WaypointFormProps> = ({ flightPlan, setFlightPlan }
   const [bearing, setBearing] = useState<string>('');
   const [distance, setDistance] = useState<string>('');
   const [coordinateInputMode, setCoordinateInputMode] = useState<'DMS' | 'Decimal'>('DMS');
-  const [dmsLatitude, setDmsLatitude] = useState<string>('');
-  const [dmsLongitude, setDmsLongitude] = useState<string>('');
-  const [decimalLatitude, setDecimalLatitude] = useState<string>('');
-  const [decimalLongitude, setDecimalLongitude] = useState<string>('');
+  const [coordinates, setCoordinates] = useState({
+    dms: { lat: '', lon: '' },
+    decimal: { lat: '', lon: '' }
+  });
+  const [errors, setErrors] = useState({ lat: '', lon: '' });
+  const [dmsInput, setDmsInput] = useState<string>('');
 
-  // オフセットポイントの計算ロジックは既存の関数を利用
+  // バリデーション関数
+  const validateDecimal = (value: string, max: number) => {
+    const num = parseFloat(value);
+    return !isNaN(num) && Math.abs(num) <= max;
+  };
 
-  // ウェイポイント追加ハンドラー
-  const handleAddWaypoint = () => {
-    // 既存のhandleAddDmsWaypointとhandleAddDecimalWaypointのロジックを統合
-    // DMS入力かDecimal入力かに応じて処理を分岐
-    if (coordinateInputMode === 'DMS') {
-      if (dmsLatitude && dmsLongitude) {
-        let latDecimal = dmsToDecimal(dmsLatitude, true);
-        let lonDecimal = dmsToDecimal(dmsLongitude, false);
-
-        if (latDecimal !== null && lonDecimal !== null) {
-          let coordinates: [number, number] = [lonDecimal, latDecimal];
-
-          if (bearing && distance) {
-            const offset = calculateOffsetPoint(
-              latDecimal,
-              lonDecimal,
-              parseFloat(bearing),
-              parseFloat(distance)
-            );
-            if (offset) {
-              coordinates = [offset.lon, offset.lat];
-              latDecimal = offset.lat;
-              lonDecimal = offset.lon;
-            }
-          }
-
-          const waypoint = {
-            id: `custom-${Date.now()}`,
-            name: `Custom Waypoint ${flightPlan.waypoints.length + 1}`,
-            type: 'custom' as const,
-            coordinates,
-            latitude: latDecimal,
-            longitude: lonDecimal,
-            nameEditable: true
-          };
-          
-          setFlightPlan({
-            ...flightPlan,
-            waypoints: [...flightPlan.waypoints, waypoint]
-          });
-        }
-      }
+  const validateDMS = (value: string, isLatitude: boolean) => {
+    if (isLatitude) {
+      // 緯度：先頭または末尾にN/Sが付いていればOK、数字部分は6桁
+      return /^(?:[NS])?\d{6}(?:[NS])?$/i.test(value);
     } else {
-      let lat = parseFloat(decimalLatitude);
-      let lon = parseFloat(decimalLongitude);
-
-      if (!isNaN(lat) && !isNaN(lon)) {
-        let coordinates: [number, number] = [lon, lat];
-
-        if (bearing && distance) {
-          const offset = calculateOffsetPoint(
-            lat,
-            lon,
-            parseFloat(bearing),
-            parseFloat(distance)
-          );
-          if (offset) {
-            coordinates = [offset.lon, offset.lat];
-            lat = offset.lat;
-            lon = offset.lon;
-          }
-        }
-
-        const waypoint = {
-          id: `custom-${Date.now()}`,
-          name: `Custom Waypoint ${flightPlan.waypoints.length + 1}`,
-          type: 'custom' as const,
-          coordinates,
-          latitude: lat,
-          longitude: lon,
-          nameEditable: true
-        };
-
-        setFlightPlan({
-          ...flightPlan,
-          waypoints: [...flightPlan.waypoints, waypoint]
-        });
-      }
+      // 経度：先頭または末尾にE/Wが付いていればOK、数字部分は7桁
+      return /^(?:[EW])?\d{7}(?:[EW])?$/i.test(value);
     }
   };
 
-  const dmsToDecimal = (dms: string, isLatitude: boolean) => {
-    // DMSからDecimalへの変換ロジック (utils/index.tsから移動)
-    const regex = isLatitude ? /([NS])(\d{2})°(\d{2})'(\d{2})"/ : /([EW])(\d{3})°(\d{2})'(\d{2})"/;
-    const match = dms.toUpperCase().match(regex);
+  // 入力モード切り替え時に状態をリセット
+  useEffect(() => {
+    setErrors({ lat: '', lon: '' });
+    setCoordinates({
+      dms: { lat: '', lon: '' },
+      decimal: { lat: '', lon: '' }
+    });
+  }, [coordinateInputMode]);
 
-    if (!match) {
-      console.error("DMS形式の変換エラー: 無効なフォーマット", dms);
-      return null;
+  // ウェイポイント追加ハンドラー（更新版）
+  const handleAddWaypoint = () => {
+    let latDecimal: number | null = null;
+    let lonDecimal: number | null = null;
+
+    if (coordinateInputMode === 'DMS') {
+      const latValid = validateDMS(coordinates.dms.lat, true);
+      const lonValid = validateDMS(coordinates.dms.lon, false);
+
+      if (!latValid || !lonValid) {
+        setErrors({
+          lat: latValid ? '' : "有効な緯度を入力してください（例: N354336\"）",
+          lon: lonValid ? '' : "有効な経度を入力してください（例: E1394500\"）"
+        });
+        return;
+      }
+
+      latDecimal = dmsToDecimal(coordinates.dms.lat, true);
+      lonDecimal = dmsToDecimal(coordinates.dms.lon, false);
+    } else {
+      const latValid = validateDecimal(coordinates.decimal.lat, 90);
+      const lonValid = validateDecimal(coordinates.decimal.lon, 180);
+
+      if (!latValid || !lonValid) {
+        setErrors({
+          lat: latValid ? '' : '有効な緯度を入力してください（-90〜90）',
+          lon: lonValid ? '' : '有効な経度を入力してください（-180〜180）'
+        });
+        return;
+      }
+
+      latDecimal = parseFloat(coordinates.decimal.lat);
+      lonDecimal = parseFloat(coordinates.decimal.lon);
     }
 
-    const hemisphere = match[1];
-    const degrees = parseInt(match[2], 10);
-    const minutes = parseInt(match[3], 10);
-    const seconds = parseInt(match[4], 10);
+    if (latDecimal !== null && lonDecimal !== null) {
+      let coordinates: [number, number] = [lonDecimal, latDecimal];
 
-    let decimal = degrees + minutes / 60 + seconds / 3600;
+      if (bearing && distance) {
+        const offset = calculateOffsetPoint(
+          latDecimal,
+          lonDecimal,
+          parseFloat(bearing),
+          parseFloat(distance)
+        );
+        if (offset) {
+          coordinates = [offset.lon, offset.lat];
+          latDecimal = offset.lat;
+          lonDecimal = offset.lon;
+        }
+      }
 
-    if (hemisphere === 'S' || hemisphere === 'W') {
-      decimal = -decimal;
+      const waypoint = {
+        id: `custom-${Date.now()}`,
+        name: `Custom Waypoint ${flightPlan.waypoints.length + 1}`,
+        type: 'custom' as const,
+        coordinates,
+        latitude: latDecimal,
+        longitude: lonDecimal,
+        nameEditable: true
+      };
+
+      console.log("追加するWaypoint:", waypoint);
+
+      setFlightPlan({
+        ...flightPlan,
+        waypoints: [...flightPlan.waypoints, waypoint]
+      });
+
+      console.log("更新後のFlightPlan.waypoints:", [...flightPlan.waypoints, waypoint]);
     }
+  };
 
-    return decimal;
+  const handleDmsInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setDmsInput(value);
+
+    // カンマまたはセミコロン区切りの場合、例: "334005,1234005" あるいは "N334005;E1234005"
+    const parts = value.split(/,|;/).map(part => part.trim());
+    if (parts.length === 2) {
+      let latRaw = parts[0];
+      let lonRaw = parts[1];
+
+      // 緯度：NまたはSが含まれていなければデフォルトで「N」を付与
+      if (!/^[NnSs]/.test(latRaw) && !/[NnSs]$/.test(latRaw)) {
+        latRaw = "N" + latRaw;
+      }
+
+      // 経度：EまたはWが含まれていなければデフォルトで「E」を付与
+      if (!/^[EeWw]/.test(lonRaw) && !/[EeWw]$/.test(lonRaw)) {
+        lonRaw = "E" + lonRaw;
+      }
+
+      // 桁数の検証（ヘミスフィア記号を除いた部分）
+      const latDigits = latRaw.replace(/[NnSs]/g, '');
+      const lonDigits = lonRaw.replace(/[EeWw]/g, '');
+      if (latDigits.length === 6 && lonDigits.length === 7) {
+        // 統一された形式で大文字に変換して状態を更新
+        setCoordinates(prev => ({
+          ...prev,
+          dms: { lat: latRaw.toUpperCase(), lon: lonRaw.toUpperCase() }
+        }));
+        // エラークリア
+        setErrors({ lat: '', lon: '' });
+      }
+    }
   };
 
   return (
@@ -157,18 +186,40 @@ const WaypointForm: React.FC<WaypointFormProps> = ({ flightPlan, setFlightPlan }
       {/* DMS入力フィールド */}
       {coordinateInputMode === 'DMS' ? (
         <div className="space-y-2">
-          <DmsInput
-            label="緯度 (DMS)"
-            value={dmsLatitude}
-            onChange={setDmsLatitude}
-            latitude={true}
-          />
-          <DmsInput
-            label="経度 (DMS)"
-            value={dmsLongitude}
-            onChange={setDmsLongitude}
-            latitude={false}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-400">
+              緯度 (ddmmss 形式、例: N334005)
+            </label>
+            <input
+              type="text"
+              value={coordinates.dms.lat}
+              onChange={(e) =>
+                setCoordinates(prev => ({
+                  ...prev,
+                  dms: { ...prev.dms, lat: e.target.value.toUpperCase() }
+                }))
+              }
+              className="mt-1 block w-full rounded-md border-gray-600 shadow-sm bg-gray-700 text-gray-50 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            />
+            {errors.lat && <span className="text-red-500 text-sm">{errors.lat}</span>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-400">
+              経度 (dddmmss 形式、例: E1234005)
+            </label>
+            <input
+              type="text"
+              value={coordinates.dms.lon}
+              onChange={(e) =>
+                setCoordinates(prev => ({
+                  ...prev,
+                  dms: { ...prev.dms, lon: e.target.value.toUpperCase() }
+                }))
+              }
+              className="mt-1 block w-full rounded-md border-gray-600 shadow-sm bg-gray-700 text-gray-50 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            />
+            {errors.lon && <span className="text-red-500 text-sm">{errors.lon}</span>}
+          </div>
         </div>
       ) : (
         <div className="space-y-2">
@@ -176,21 +227,21 @@ const WaypointForm: React.FC<WaypointFormProps> = ({ flightPlan, setFlightPlan }
             <label className="block text-sm font-medium text-gray-400">緯度 (±90.000000)</label>
             <input
               type="text"
-              value={decimalLatitude}
-              onChange={(e) => setDecimalLatitude(e.target.value)}
-              placeholder="例: 35.123456"
-              className="mt-1 block w-full rounded-md border-gray-700 shadow-sm bg-gray-800 text-gray-50"
+              value={coordinates.decimal.lat}
+              onChange={(e) => setCoordinates(prev => ({ ...prev, decimal: { ...prev.decimal, lat: e.target.value } }))}
+              className="mt-1 block w-full rounded-md border-gray-600 shadow-sm bg-gray-700 text-gray-50 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
             />
+            {errors.lat && <span className="text-red-500 text-sm">{errors.lat}</span>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-400">経度 (±180.000000)</label>
             <input
               type="text"
-              value={decimalLongitude}
-              onChange={(e) => setDecimalLongitude(e.target.value)}
-              placeholder="例: 139.123456"
-              className="mt-1 block w-full rounded-md border-gray-700 shadow-sm bg-gray-800 text-gray-50"
+              value={coordinates.decimal.lon}
+              onChange={(e) => setCoordinates(prev => ({ ...prev, decimal: { ...prev.decimal, lon: e.target.value } }))}
+              className="mt-1 block w-full rounded-md border-gray-600 shadow-sm bg-gray-700 text-gray-50 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
             />
+            {errors.lon && <span className="text-red-500 text-sm">{errors.lon}</span>}
           </div>
         </div>
       )}
@@ -206,7 +257,7 @@ const WaypointForm: React.FC<WaypointFormProps> = ({ flightPlan, setFlightPlan }
               value={bearing}
               onChange={(e) => setBearing(e.target.value)}
               placeholder="0-360"
-              className="mt-1 block w-full rounded-md border-gray-700 shadow-sm bg-gray-800 text-gray-50"
+              className="mt-1 block w-full rounded-md border-gray-600 shadow-sm bg-gray-700 text-gray-50 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
               min="0"
               max="360"
             />
@@ -218,7 +269,7 @@ const WaypointForm: React.FC<WaypointFormProps> = ({ flightPlan, setFlightPlan }
               value={distance}
               onChange={(e) => setDistance(e.target.value)}
               placeholder="距離"
-              className="mt-1 block w-full rounded-md border-gray-700 shadow-sm bg-gray-800 text-gray-50"
+              className="mt-1 block w-full rounded-md border-gray-600 shadow-sm bg-gray-700 text-gray-50 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
               min="0"
             />
           </div>
@@ -232,6 +283,19 @@ const WaypointForm: React.FC<WaypointFormProps> = ({ flightPlan, setFlightPlan }
       >
         Add Waypoint
       </button>
+
+      <div>
+        <label>
+          連続DMS入力 (例:
+          N334005,E1234005):
+        </label>
+        <input 
+          type="text" 
+          value={dmsInput} 
+          onChange={handleDmsInputChange} 
+          placeholder="Nddmmss または Edddmmss"
+        />
+      </div>
     </div>
   );
 };

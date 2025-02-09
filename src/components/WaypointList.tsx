@@ -278,13 +278,13 @@ const WaypointList: React.FC<WaypointListProps> = ({ flightPlan, setFlightPlan }
               {editingMode === 'position' && editingIndex === index ? (
                 <div className="space-y-2">
                   <DmsInput
-                    label="緯度"
+                    label="緯度 (ddmmss形式、例: N334005)"
                     value={dmsLatitude || ''}
                     onChange={handleDmsLatitudeChange}
                     latitude={true}
                   />
                   <DmsInput
-                    label="経度"
+                    label="経度 (dddmmss形式、例: E1234005)"
                     value={dmsLongitude || ''}
                     onChange={handleDmsLongitudeChange}
                     latitude={false}

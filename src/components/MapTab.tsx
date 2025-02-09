@@ -1,12 +1,14 @@
-import React, { useEffect, useRef, useMemo } from 'react';
-import { MapContainer, Popup, Polyline, CircleMarker, useMap } from 'react-leaflet';
-import { FlightPlan } from '../types';
+import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { MapContainer, Popup, Polyline, CircleMarker } from 'react-leaflet';
+import { FlightPlan, GeoJSONFeature } from '../types';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-groupedlayercontrol/dist/leaflet.groupedlayercontrol.min.css';
 import 'leaflet-groupedlayercontrol';
 import L from 'leaflet';
 import icon from '/images/marker-icon.png';
 import iconShadow from '/images/marker-shadow.png';
+import { useMapRoute } from '../hooks/useMapRoute';
+import { DEFAULT_CENTER, DEFAULT_ZOOM, getNavaidColor } from '../utils';
 
 let DefaultIcon = L.icon({
   iconUrl: icon,
@@ -26,43 +28,128 @@ interface MapTabProps {
 }
 
 const MapTab: React.FC<MapTabProps> = ({ flightPlan }) => {
-  const defaultCenter = { lat: 35.6762, lng: 139.6503 }; // Tokyo
-  const defaultZoom = 6;
-
-  // ルートの座標を作成
-  const routePoints = React.useMemo(() => {
-    const points: [number, number][] = [];
-    if (flightPlan.departure && typeof flightPlan.departure.latitude === 'number' && typeof flightPlan.departure.longitude === 'number') {
-      points.push([flightPlan.departure.latitude, flightPlan.departure.longitude]);
-    }
-    flightPlan.waypoints.forEach(waypoint => {
-      if (waypoint && typeof waypoint.latitude === 'number' && typeof waypoint.longitude === 'number') {
-        points.push([waypoint.latitude, waypoint.longitude]);
-      }
-    });
-    if (flightPlan.arrival && typeof flightPlan.arrival.latitude === 'number' && typeof flightPlan.arrival.longitude === 'number') {
-      points.push([flightPlan.arrival.latitude, flightPlan.arrival.longitude]);
-    }
-    return points;
-  }, [flightPlan]);
+  const routePoints = useMapRoute(flightPlan);
+  const [map, setMap] = useState<L.Map | null>(null);
 
   return (
-    <div className="h-[calc(100vh-12rem)] bg-white rounded-lg shadow-sm overflow-hidden">
+    <div className="h-[calc(100vh-7rem)] bg-white rounded-lg shadow-sm overflow-hidden">
       <MapContainer
-        center={[defaultCenter.lat, defaultCenter.lng]}
-        zoom={defaultZoom}
+        center={[DEFAULT_CENTER.lat, DEFAULT_CENTER.lng]}
+        zoom={DEFAULT_ZOOM}
         className="h-full w-full"
+        ref={setMap}
       >
-        <MapContent flightPlan={flightPlan} routePoints={routePoints} />
+        <MapContent flightPlan={flightPlan} routePoints={routePoints} map={map} />
       </MapContainer>
     </div>
   );
 };
 
-const MapContent: React.FC<{ flightPlan: FlightPlan, routePoints: [number, number][] }> = ({ flightPlan, routePoints }) => {
-  const map = useMap();
+const MapContent: React.FC<{ flightPlan: FlightPlan, routePoints: [number, number][], map: L.Map | null }> = ({ flightPlan, routePoints, map }) => {
   const layerControlRef = useRef<L.Control.Layers | null>(null) as LayerControlRef;
-  const [navaids, setNavaids] = React.useState<any[]>([]);
+  const [navaids, setNavaids] = React.useState<GeoJSONFeature[]>([]);
+
+  // 各フィーチャーをクリック時に詳細情報をポップアップ表示するための関数
+  const onEachFeaturePopup = useCallback((feature: any, layer: L.Layer) => {
+    let popupContent = `<div><h4>Details</h4><table>`;
+    for (const key in feature.properties) {
+      popupContent += `<tr><td>${key}</td><td>${feature.properties[key]}</td></tr>`;
+    }
+    popupContent += `</table></div>`;
+    layer.bindPopup(popupContent);
+  }, []);
+
+  // overlayLayers を useMemo で安定したオブジェクトとして生成（再レンダリング時に同じインスタンスを返す）
+  const overlayLayers = useMemo(() => ({
+    "ACC Sector High": L.geoJSON(null, { 
+        style: { color: 'blue', weight: 2, opacity: 0.7 },
+        onEachFeature: onEachFeaturePopup
+    }),
+    "ACC Sector Low": L.geoJSON(null, { 
+        style: { color: 'green', weight: 2, opacity: 0.7 },
+        onEachFeature: onEachFeaturePopup 
+    }),
+    "RAPCON": L.geoJSON(null, { 
+        style: { color: 'orange', weight: 2, opacity: 0.7 },
+        onEachFeature: onEachFeaturePopup 
+    }),
+    "Restricted Airspace": L.geoJSON(null, { 
+        style: { color: 'red', weight: 2, opacity: 0.7, dashArray: '4' },
+        onEachFeature: onEachFeaturePopup 
+    }),
+    "Training Area Civil": L.geoJSON(null, { 
+        style: { color: 'brown', weight: 2, opacity: 0.7 },
+        onEachFeature: onEachFeaturePopup 
+    }),
+    "Training Area High": L.geoJSON(null, { 
+        style: { color: 'purple', weight: 2, opacity: 0.7 },
+        onEachFeature: onEachFeaturePopup 
+    }),
+    "Training Area Low": L.geoJSON(null, { 
+        style: { color: 'yellow', weight: 2, opacity: 0.7 },
+        onEachFeature: onEachFeaturePopup 
+    }),
+    "Airports": L.geoJSON(null, {
+      pointToLayer: (feature, latlng) => {
+        // 空港のマーカーは非表示、5nm (約9260m) の管制圏円のみ表示
+        const circle = L.circle(latlng, { radius: 9260, color: 'cyan', weight: 2, dashArray: '5, 5', fillOpacity: 0.1 });
+        return L.layerGroup([circle]);
+      },
+      onEachFeature: (feature, layer) => {
+        const popupContent = `<div>
+          <strong>${feature.properties.name1}</strong><br/>
+          ID: ${feature.properties.id}<br/>
+          Type: ${feature.properties.type}
+        </div>`;
+        layer.bindPopup(popupContent);
+      }
+    })
+  }), [onEachFeaturePopup]);
+
+  // GeoJSONデータをフェッチして各レイヤーに追加
+  useEffect(() => {
+    // ACC_Sector High/Low と他のレイヤーのデータ取得
+    fetch('/geojson/ACC_Sector_High.geojson')
+      .then(res => res.json())
+      .then(data => overlayLayers["ACC Sector High"].addData(data))
+      .catch(console.error);
+
+    fetch('/geojson/ACC_Sector_Low.geojson')
+      .then(res => res.json())
+      .then(data => overlayLayers["ACC Sector Low"].addData(data))
+      .catch(console.error);
+
+    fetch('/geojson/RAPCON.geojson')
+      .then(res => res.json())
+      .then(data => overlayLayers["RAPCON"].addData(data))
+      .catch(console.error);
+
+    fetch('/geojson/RestrictedAirspace.geojson')
+      .then(res => res.json())
+      .then(data => overlayLayers["Restricted Airspace"].addData(data))
+      .catch(console.error);
+
+    fetch('/geojson/TrainingAreaCivil.geojson')
+      .then(res => res.json())
+      .then(data => overlayLayers["Training Area Civil"].addData(data))
+      .catch(console.error);
+
+    fetch('/geojson/TrainingAreaHigh.geojson')
+      .then(res => res.json())
+      .then(data => overlayLayers["Training Area High"].addData(data))
+      .catch(console.error);
+
+    fetch('/geojson/TrainingAreaLow.geojson')
+      .then(res => res.json())
+      .then(data => overlayLayers["Training Area Low"].addData(data))
+      .catch(console.error);
+
+    // Airports レイヤーのデータ取得
+    fetch('/geojson/Airports.geojson')
+      .then(res => res.json())
+      .then(data => overlayLayers["Airports"].addData(data))
+      .catch(console.error);
+  }, [overlayLayers]);
 
   // OpenStreetMapレイヤー
   const osmLayer = useMemo(() => L.tileLayer(
@@ -80,65 +167,64 @@ const MapContent: React.FC<{ flightPlan: FlightPlan, routePoints: [number, numbe
     }
   ), []);
 
-  const baseLayers = useMemo(() => ({
-    "地図": osmLayer,
-    "衛星写真": esriLayer
-  }), [osmLayer, esriLayer]);
+  const baseLayers = useMemo(() => {
+    console.log("baseLayers in useMemo:", osmLayer, esriLayer);
+    return {
+      "地図": osmLayer,
+      "衛星写真": esriLayer,
+    };
+  }, [osmLayer, esriLayer]);
 
   // Navaidsデータを読み込む
-  useEffect(() => {
-    const fetchNavaids = async () => {
-      try {
-        const response = await fetch('/geojson/Navaids.geojson');
-        const data = await response.json();
-        setNavaids(data.features);
-      } catch (error) {
-        console.error('Failed to load Navaids:', error);
-      }
-    };
-    fetchNavaids();
+  const fetchNavaids = useCallback(async () => {
+    try {
+      const response = await fetch('/geojson/Navaids.geojson');
+      const data = await response.json();
+      setNavaids(data.features);
+    } catch (error) {
+      console.error('Failed to load Navaids:', error);
+    }
   }, []);
 
-  // Navaidの色を決定する関数
-  const getNavaidColor = (type: string) => {
-    switch (type) {
-      case 'TACAN':
-        return 'red';
-      case 'VOR':
-        return 'blue';
-      case 'VORTAC':
-        return 'purple';
-      default:
-        return 'gray';
-    }
-  };
+  useEffect(() => {
+    fetchNavaids();
+  }, [fetchNavaids]);
 
   // レイヤーコントロールの更新
   useEffect(() => {
     if (!map) {
-      console.error('Map instance is not available');
       return;
     }
 
-    try {
-      const control = L.control.layers(baseLayers, {});
-      control.addTo(map);
+    // レイヤーコントロールがまだ追加されていない場合のみ追加する
+    if (!layerControlRef.current) {
+      const control = L.control.layers(baseLayers, overlayLayers).addTo(map);
+      console.log("baseLayers in useEffect:", baseLayers);
       layerControlRef.current = control;
-
+      // 初期のベースレイヤーとして "地図" のタイルレイヤー (osmLayer) を追加する
       if (!map.hasLayer(osmLayer)) {
         osmLayer.addTo(map);
       }
-    } catch (error) {
-      console.error('Layer initialization failed:', error);
+    } else {
+      // 既存のレイヤーコントロールを更新する
+      (Object.keys(baseLayers) as Array<keyof typeof baseLayers>).forEach(key => {
+        layerControlRef.current?.removeLayer(baseLayers[key]);
+        layerControlRef.current?.addBaseLayer(baseLayers[key], key);
+      });
+      // オーバーレイレイヤーも更新
+      (Object.keys(overlayLayers) as (keyof typeof overlayLayers)[]).forEach(key => {
+        layerControlRef.current?.removeLayer(overlayLayers[key]);
+        layerControlRef.current?.addOverlay(overlayLayers[key], key);
+      });
     }
 
     return () => {
+      // layerControlRef.current が null でないことを確認してから removeControl を呼び出す
       if (map && layerControlRef.current) {
         map.removeControl(layerControlRef.current);
-        layerControlRef.current = null;
       }
     };
-  }, [map, baseLayers, osmLayer]);
+  }, [map, baseLayers, overlayLayers]);
 
   return (
     <>
@@ -215,8 +301,8 @@ const MapContent: React.FC<{ flightPlan: FlightPlan, routePoints: [number, numbe
             navaid.geometry.coordinates[0]
           ]}
           radius={4}
-          fillColor={getNavaidColor(navaid.properties.type)}
-          color={getNavaidColor(navaid.properties.type)}
+          fillColor={getNavaidColor(navaid.properties.type ?? '')}
+          color={getNavaidColor(navaid.properties.type ?? '')}
           weight={1}
           fillOpacity={0.8}
         >

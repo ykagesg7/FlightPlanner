@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { parseDMSValue, formatDMSValue } from '../utils';
 
 interface DmsInputProps {
     label: string;
     value: string;
     onChange: (value: string) => void;
     latitude?: boolean; // 緯度入力かどうか
+    error?: string;
 }
 
 /**
@@ -17,97 +19,47 @@ interface DmsInputProps {
  * 方位記号(N, S, E, W)はオプションで、数値の前後どちらに付与しても認識します。
  * 例: "N345678", "345678N", "345678" (緯度), "E1234567", "1234567E", "1234567" (経度)
  */
-const DmsInput: React.FC<DmsInputProps> = ({ label, value, onChange, latitude }) => {
-    const [degrees, setDegrees] = useState<string>('');
-    const [minutes, setMinutes] = useState<string>('');
-    const [seconds, setSeconds] = useState<string>('');
-    const [error, setError] = useState< string | null >(null); // エラーメッセージの状態を追加
+const DmsInput: React.FC<DmsInputProps> = React.memo(({
+    label,
+    value,
+    onChange,
+    latitude = false,
+    error
+}) => {
+    const [degrees, setDegrees] = useState('');
+    const [minutes, setMinutes] = useState('');
+    const [seconds, setSeconds] = useState('');
 
+    // 入力値が変更されたときに、degrees, minutes, secondsを更新
     useEffect(() => {
-        parseDMSValue(value);
-    }, [value]);
-
-    const parseDMSValue = (dmsValue: string) => {
-        const regex = latitude ? /([NS])?(\d{2})?(\d{2})?(\d{2})?([NS])?/i : /([EW])?(\d{3})?(\d{2})?(\d{2})?([EW])?/i;
-        const match = dmsValue.match(regex);
-
-        if (match) {
-            let deg = match[2] || '';
-            let min = match[3] || '';
-            let sec = match[4] || '';
-
-            setDegrees(deg);
-            setMinutes(min);
-            setSeconds(sec);
-        } else {
-            setDegrees('');
-            setMinutes('');
-            setSeconds('');
+        const parsed = parseDMSValue(value, latitude);
+        if (parsed) {
+            setDegrees(parsed.degrees);
+            setMinutes(parsed.minutes);
+            setSeconds(parsed.seconds);
         }
-    };
+    }, [value, latitude]);
 
-    const formatDMSValue = () => {
-        let formattedValue = '';
-        formattedValue += degrees.padStart(latitude ? 2 : 3, '0');
-        formattedValue += minutes.padStart(2, '0');
-        formattedValue += seconds.padStart(2, '0');
-        return formattedValue;
-    };
+    // DMS形式の文字列を生成する関数
+    const formatValue = useCallback((d: string, m: string, s: string) => {
+        return formatDMSValue(d, m, s, latitude);
+    }, [latitude]);
 
-    const handleFieldChange = (field: 'degrees' | 'minutes' | 'seconds', newValue: string) => {
-        let isValid = true;
-        let errorMessage = null;
+    // 各入力値の変更ハンドラ
+    const updateDegrees = useCallback((val: string) => {
+        setDegrees(val);
+        onChange(formatValue(val, minutes, seconds));
+    }, [minutes, seconds, onChange, formatValue]);
 
-        if (isNaN(Number(newValue))) {
-            isValid = false;
-            errorMessage = '数値を入力してください';
-        } else {
-            const numValue = Number(newValue);
-            if (field === 'degrees') {
-                if (latitude) {
-                    if (numValue < 0 || numValue > 90) {
-                        isValid = false;
-                        errorMessage = '0-90度の範囲で入力してください';
-                    }
-                } else {
-                    if (numValue < 0 || numValue > 180) {
-                        isValid = false;
-                        errorMessage = '0-180度の範囲で入力してください';
-                    }
-                }
-            } else if (field === 'minutes' || field === 'seconds') {
-                if (numValue < 0 || numValue > 59) {
-                    isValid = false;
-                    errorMessage = '0-59の範囲で入力してください';
-                }
-            }
-        }
+    const updateMinutes = useCallback((val: string) => {
+        setMinutes(val);
+        onChange(formatValue(degrees, val, seconds));
+    }, [degrees, seconds, onChange, formatValue]);
 
-        setError(errorMessage); // エラーメッセージを設定
-
-        if (isValid) {
-            setError(null);
-            switch (field) {
-                case 'degrees':
-                    setDegrees(newValue);
-                    break;
-                case 'minutes':
-                    setMinutes(newValue);
-                    break;
-                case 'seconds':
-                    setSeconds(newValue);
-                    break;
-                default:
-                    break;
-            }
-        }
-    };
-
-    useEffect(() => {
-        if (!error) {
-            onChange(formatDMSValue());
-        }
-    }, [degrees, minutes, seconds, onChange, error]);
+    const updateSeconds = useCallback((val: string) => {
+        setSeconds(val);
+        onChange(formatValue(degrees, minutes, val));
+    }, [degrees, minutes, onChange, formatValue]);
 
     return (
         <div className="mb-4">
@@ -116,24 +68,24 @@ const DmsInput: React.FC<DmsInputProps> = ({ label, value, onChange, latitude })
                 <input
                     type="text"
                     value={degrees}
-                    onChange={(e) => handleFieldChange('degrees', e.target.value)}
-                    placeholder="度(DD)"
+                    onChange={(e) => updateDegrees(e.target.value)}
+                    placeholder={latitude ? "DD" : "DDD"}
                     className="w-20 rounded border-gray-300"
                     maxLength={latitude ? 2 : 3}
                 />
                 <input
                     type="text"
                     value={minutes}
-                    onChange={(e) => handleFieldChange('minutes', e.target.value)}
-                    placeholder="分(MM)"
+                    onChange={(e) => updateMinutes(e.target.value)}
+                    placeholder="MM"
                     className="w-20 rounded border-gray-300"
                     maxLength={2}
                 />
                 <input
                     type="text"
                     value={seconds}
-                    onChange={(e) => handleFieldChange('seconds', e.target.value)}
-                    placeholder="秒(00)"
+                    onChange={(e) => updateSeconds(e.target.value)}
+                    placeholder="SS"
                     className="w-20 rounded border-gray-300"
                     maxLength={2}
                 />
@@ -141,6 +93,6 @@ const DmsInput: React.FC<DmsInputProps> = ({ label, value, onChange, latitude })
             {error && <p className="mt-1 text-red-500 text-sm">{error}</p>} {/* エラーメッセージ表示 */}
         </div>
     );
-};
+});
 
 export default DmsInput; 

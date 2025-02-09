@@ -2025,7 +2025,7 @@
       "type": "Feature",
       "properties": {
         "id": "RJAM",
-        "type": "空港",
+        "type": "CIVIL",
         "name1": "南鳥島",
         "Elev(ft)": 22,
         "RWY1": "05-23",

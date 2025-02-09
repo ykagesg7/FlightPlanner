@@ -89,6 +89,40 @@ const RoutePlanning: React.FC<RoutePlanningProps> = ({
           selectedOption={flightPlan.arrival}
           onChange={(option) => setFlightPlan({ ...flightPlan, arrival: option || null })}
           placeholder="Select Arrival Airport"
+          className="text-gray-50"
+          styles={{
+            control: (provided: any) => ({
+              ...provided,
+              borderRadius: '0.5rem',
+              borderColor: '#4b5563',
+              backgroundColor: '#4b5563',
+              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+              '&:hover': {
+                borderColor: '#d1d5db',
+              },
+            }),
+            menu: (provided: any) => ({
+              ...provided,
+              backgroundColor: '#4b5563',
+            }),
+            option: (provided: any, state: any) => ({
+              ...provided,
+              backgroundColor: state.isFocused ? '#6b7280' : '#4b5563',
+              color: 'white',
+            }),
+            placeholder: (provided: any) => ({
+              ...provided,
+              color: 'white',
+            }),
+            input: (provided: any) => ({
+              ...provided,
+              color: 'white',
+            }),
+            singleValue: (provided: any) => ({
+              ...provided,
+              color: 'white',
+            }),
+          }}
         />
       </div>
 

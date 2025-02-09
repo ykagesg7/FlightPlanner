@@ -22,8 +22,8 @@ export interface Waypoint {
   name: string;
   type: 'airport' | 'navaid' | 'custom';
   sourceId?: string;
-  coordinates: [number, number];
   ch?: string;
+  coordinates: [number, number];
   latitude: number;
   longitude: number;
   nameEditable?: boolean;
@@ -55,9 +55,11 @@ export interface FlightPlan {
 export interface GeoJSONFeature {
   type: string;
   properties: {
+    id?: string;
     name?: string;
     type?: string;
-    frequency?: number;
+    ch?: string;
+    freq?: number;
   };
   geometry: {
     type: string;

@@ -131,25 +131,86 @@ export const decimalToDMS = (lat: number, lng: number): { latDMS: string, lonDMS
  * @returns {number | null} Decimal形式の緯度または経度、変換失敗時はnull
  */
 export const dmsToDecimal = (dms: string, isLatitude: boolean): number | null => {
-  const regex = isLatitude ? /([NS])(\d{2})°(\d{2})'(\d{2})"/ : /([EW])(\d{3})°(\d{2})'(\d{2})"/;
+  const regex = isLatitude 
+    ? /([NS])(\d{2})°(\d{2})'(\d{2})"/i 
+    : /([EW])(\d{3})°(\d{2})'(\d{2})"/i;
   const match = dms.toUpperCase().match(regex);
 
-  if (!match) {
-    console.error("DMS形式の変換エラー: 無効なフォーマット", dms);
-    return null;
-  }
+  if (!match) return null;
 
   const hemisphere = match[1];
   const degrees = parseInt(match[2], 10);
   const minutes = parseInt(match[3], 10);
   const seconds = parseInt(match[4], 10);
 
-  let decimal = degrees + minutes / 60 + seconds / 3600;
-
-  if (hemisphere === 'S' || hemisphere === 'W') {
-    decimal = -decimal;
+  // 値の範囲チェックを追加
+  if (
+    (isLatitude && degrees > 90) ||
+    (!isLatitude && degrees > 180) ||
+    minutes >= 60 ||
+    seconds >= 60
+  ) {
+    return null;
   }
 
-  return decimal;
+  let decimal = degrees + minutes / 60 + seconds / 3600;
+  return (hemisphere === 'S' || hemisphere === 'W') ? -decimal : decimal;
+};
+
+export const SPEED_INCREMENT = 10;
+export const ALTITUDE_INCREMENT = 1000;
+
+export const parseTimeString = (timeString: string): Date => {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours);
+  date.setMinutes(minutes);
+  return date;
+};
+
+export const formatDMSValue = (
+  degrees: string,
+  minutes: string,
+  seconds: string,
+  latitude?: boolean
+): string => {
+  return degrees.padStart(latitude ? 2 : 3, '0') + 
+         minutes.padStart(2, '0') + 
+         seconds.padStart(2, '0');
+};
+
+export const parseDMSValue = (
+  dmsValue: string, 
+  latitude?: boolean
+) => {
+  const regex = latitude ? 
+    /([NS])?(\d{2})?(\d{2})?(\d{2})?([NS])?/i : 
+    /([EW])?(\d{3})?(\d{2})?(\d{2})?([EW])?/i;
+  const match = dmsValue.match(regex);
+
+  if (match) {
+    return {
+      degrees: match[2] || '',
+      minutes: match[3] || '',
+      seconds: match[4] || ''
+    };
+  }
+  return null;
+};
+
+export const DEFAULT_CENTER = { lat: 35.6762, lng: 139.6503 }; // 東京の座標
+export const DEFAULT_ZOOM = 6;
+
+export const getNavaidColor = (type: string) => {
+  switch (type) {
+    case 'TACAN':
+      return 'red';
+    case 'VOR':
+      return 'blue';
+    case 'VORTAC':
+      return 'purple';
+    default:
+      return 'gray';
+  }
 };
   
