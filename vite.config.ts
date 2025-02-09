@@ -14,7 +14,7 @@ export default defineConfig(({ command }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
-    assetsInclude: ['**/*.geojson'],
-    base: command === 'serve' ? '/' : '/Flightplanner/',
+    assetsInclude: ['/.geojson'],
+    base: command === 'serve' ? '/' : '/FlightPlanner/',
   };
 });
